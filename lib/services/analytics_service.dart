@@ -1,5 +1,5 @@
 import 'package:btc_roundup/models/monthly_summary.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AnalyticsService {
   static List<MonthlySummary> buildMonthlySummaries(
@@ -8,8 +8,10 @@ class AnalyticsService {
     final Map<String, MonthlySummary> map = {};
 
     for (final tx in transactions) {
-      final DateTime date = tx['createdAt'];
-      final double roundUp = (tx['roundUp'] as num).toDouble();
+      final Timestamp timestamp = tx['createdAt'] as Timestamp;
+      final DateTime date = timestamp.toDate();
+      final double roundUp = (tx['roundUp'] as num?)?.toDouble() ?? 0;
+      final int sats = (tx['sats'] as int?) ?? 0;
 
       final key = '${date.year}-${date.month}';
 
@@ -19,14 +21,17 @@ class AnalyticsService {
           month: date.month,
           totalRoundUp: roundUp,
           transactionCount: 1,
+          totalSats: sats,
         );
       } else {
         final current = map[key]!;
+
         map[key] = MonthlySummary(
           year: current.year,
           month: current.month,
-          totalRoundUp: current.totalRoundUp + roundUp,
-          transactionCount: current.transactionCount + 1,
+          totalRoundUp: (current.totalRoundUp ?? 0) + roundUp,
+          transactionCount: (current.transactionCount ?? 0) + 1,
+          totalSats: (current.totalSats) + sats,
         );
       }
     }
@@ -35,7 +40,7 @@ class AnalyticsService {
 
     // newest month first
     list.sort((a, b) {
-      if (a.year != b.year) return b.year.compareTo(a.year);
+      if ((a.year) != (b.year)) return (b.year).compareTo(a.year);
       return b.month.compareTo(a.month);
     });
 

@@ -20,7 +20,7 @@ class MonthlySummaryCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text('Total round-ups: €${summary.totalRoundUp.toStringAsFixed(2)}'),
+            Text('Total round-ups: €${summary.totalRoundUp?.toStringAsFixed(2)}'),
             Text('Transactions: ${summary.transactionCount}'),
           ],
         ),

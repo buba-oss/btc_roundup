@@ -1,4 +1,4 @@
-package com.example.btc_roundup
+package com.bobde6.btcroundup
 
 import io.flutter.embedding.android.FlutterActivity
 

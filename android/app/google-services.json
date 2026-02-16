@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:900791183983:android:583c7e0c3f9e2395d9bb9a",
+        "mobilesdk_app_id": "1:900791183983:android:9d59c7526a275599d9bb9a",
         "android_client_info": {
-          "package_name": "com.example.btc_roundup"
+          "package_name": "com.bobde6.btcroundup"
         }
       },
       "oauth_client": [],
@@ -24,6 +24,7 @@
         }
       }
     }
+
   ],
   "configuration_version": "1"
 }

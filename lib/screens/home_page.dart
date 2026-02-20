@@ -1,28 +1,31 @@
 import 'dart:async';
 import 'dart:ui';
-
-import 'package:flutter/material.dart';
+import 'package:btc_roundup/l10n/app_localizations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../models/monthly_summary.dart';
+import '../providers/settings_provider.dart';
 import '../services/auth_service.dart';
 import '../services/btc_price_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/montly_bar_chart.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required User user,});
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+
   final TextEditingController _amountController = TextEditingController();
   int totalSavedSats = 0;
   bool loading = false;
@@ -30,20 +33,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String? btcReceivingAddress;
   List<MonthlySummary> monthlySummaries = [];
   bool _monthlyDataLoaded = false;
-  bool anyExpanded = false;
+
   static const int _pageSize = 20;
   DocumentSnapshot? _lastDocument;
   bool _hasMoreTransactions = true;
   bool _isLoadingMore = false;
   final List<QueryDocumentSnapshot> _allTransactions = [];
 
-  // Animated Map to track expansion states with animation controllers
   final Map<DateTime, _DayExpansionState> _dayExpansionStates = {};
   bool _prefsLoaded = false;
-
-  final user = FirebaseAuth.instance.currentUser;
-  static const String _expandedDaysKey = 'expanded_days_state';
   StreamSubscription? _transactionSubscription;
+
+  User? get user => FirebaseAuth.instance.currentUser;
+  static const String _expandedDaysKey = 'expanded_days_state';
 
   @override
   void initState() {
@@ -51,7 +53,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _loadPersistedState();
     _loadUserData();
     _loadMonthlyData();
-    _subscribeToTransactions(); // Add this
+    _subscribeToTransactions();
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _transactionSubscription?.cancel();
+    for (final state in _dayExpansionStates.values) {
+      state.controller.dispose();
+    }
+    super.dispose();
   }
 
   void _subscribeToTransactions() {
@@ -63,20 +75,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         .limit(_pageSize)
         .snapshots()
         .listen((snapshot) {
-          // Force rebuild when transactions change
           if (mounted) setState(() {});
         });
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    _transactionSubscription
-        ?.cancel(); // Cancel subscription // Dispose all animation controllers
-    for (final state in _dayExpansionStates.values) {
-      state.controller.dispose();
-    }
-    super.dispose();
   }
 
   Future<void> _loadPersistedState() async {
@@ -184,15 +184,57 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }, SetOptions(merge: true));
 
     setState(() => btcReceivingAddress = address);
-    debugPrint('Generated address: $address');
+  }
+  void _showSettingsDialog(BuildContext context) {
+    // Get settings from the provider at the top level
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Settings'),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SwitchListTile(
+                    title: const Text('Biometric Lock'),
+                    subtitle: const Text('Require fingerprint/face to open app'),
+                    value: settings.biometricEnabled,
+                    onChanged: (value) {
+                      settings.setBiometricEnabled(value);
+                      setState(() {}); // Rebuild dialog
+                    },
+                  ),
+                  const Divider(),
+                  ListTile(
+                    title: const Text('Language'),
+                    trailing: Text(Localizations.localeOf(context).languageCode.toUpperCase()),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _copyToClipboard(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Address copied to clipboard')),
-      );
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.copied)));
     }
   }
 
@@ -445,12 +487,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton.icon(
+
                   onPressed: () async {
-                    final navigator = Navigator.of(context);  // Capture BEFORE await
+                    final navigator = Navigator.of(
+                      context,
+                    ); // Capture BEFORE await
 
                     await _markTransactionCompleted(transactionId);
                     if (!mounted) return;
-
                     // Show checkmark animation overlay
                     showDialog(
                       context: context,
@@ -458,7 +502,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       builder: (context) => CheckmarkAnimation(
                         onComplete: () {
                           Navigator.of(context).pop(); // Close animation dialog
-                          navigator.pop(); // Close payment dialog (use captured navigator)
+                          navigator
+                              .pop(); // Close payment dialog (use captured navigator)
                           _showSuccessSnackBar();
                         },
                       ),
@@ -563,6 +608,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _persistState();
   }
 
+
   Future<void> _loadMoreTransactions() async {
     if (!_hasMoreTransactions || _isLoadingMore) return;
 
@@ -589,33 +635,46 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final _ = Localizations.localeOf(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA), // Light gray background
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.black87,
-        title: const Text('BTC Round-Up',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-              letterSpacing: -0.5,
-            )
+        title: Text(
+          l10n.appTitle,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            letterSpacing: -0.5,
+          ),
         ),
         actions: [
+          // ADD THIS SETTINGS BUTTON
           IconButton(
-            icon: const Icon(Icons.unfold_less, color:  Colors.grey),
-            tooltip: 'Collapse All',
+            icon: const Icon(Icons.settings, color: Colors.grey),
+            tooltip: 'Settings',
+            onPressed: () => _showSettingsDialog(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.unfold_less, color: Colors.grey),
+            tooltip: l10n.collapseAll,
             onPressed: _collapseAll,
           ),
           IconButton(
             icon: const Icon(Icons.unfold_more, color: Colors.grey),
-            tooltip: 'Expand All',
+            tooltip: l10n.expandAll,
             onPressed: _expandAll,
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.grey),
-            onPressed: () => AuthService().logout(),
+            onPressed: () async {
+              await AuthService().logout();
+              // No navigation needed - AuthWrapper handles it
+            },
           ),
         ],
       ),
@@ -638,10 +697,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.orange.shade400,
-                      Colors.orange.shade600,
-                    ],
+                    colors: [Colors.orange.shade400, Colors.orange.shade600],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
@@ -670,7 +726,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Total Saved',
+                                l10n.totalSaved,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.white.withValues(),
@@ -696,7 +752,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               if (!snapshot.hasData) {
                                 return const SizedBox.shrink();
                               }
-                              final euroValue = (totalSavedSats / 100000000) * snapshot.data!;
+                              final euroValue =
+                                  (totalSavedSats / 100000000) * snapshot.data!;
                               return Text(
                                 '≈ €${euroValue.toStringAsFixed(2)}',
                                 style: TextStyle(
@@ -747,7 +804,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                         title: Text(
-                          'Round-Up Enabled',
+                          l10n.roundUpEnabled,
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: roundUpEnabled
@@ -756,7 +813,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         ),
                         subtitle: Text(
-                          'Auto-save spare change',
+                          l10n.autoSaveSpareChange,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey.shade500,
@@ -781,7 +838,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
-                        labelText: 'Enter amount spent (€)',
+                        labelText: l10n.enterAmount,
                         labelStyle: TextStyle(
                           color: Colors.grey.shade500,
                           fontWeight: FontWeight.w500,
@@ -808,7 +865,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         errorText: _validateAmount(_amountController.text),
                         helperText: roundUpEnabled
                             ? 'We\'ll round up to the nearest €10'
-                            : 'Enable round-up to save',
+                            : l10n.autoSaveSpareChange,
                       ),
                       onChanged: (value) => setState(() {}),
                     ),
@@ -825,23 +882,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             : _handleRoundUp,
                         icon: loading
                             ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
                             : const Icon(Icons.savings, size: 24),
                         label: loading
                             ? const Text('Processing...')
-                            : const Text(
-                          'Round Up & Save',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                            : Text(
+                                l10n.roundUpSave,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange.shade600,
                           foregroundColor: Colors.white,
@@ -872,7 +929,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Monthly Progress',
+                            l10n.monthlySavings,
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -889,7 +946,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              'Last 6 months',
+                              l10n.last6Months,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.orange.shade700,
@@ -916,31 +973,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                         child: monthlySummaries.length >= 2
                             ? MonthlyBarChart(
-                          summaries: monthlySummaries,
-                          onMonthSelected: (monthDate) {
-                            debugPrint('Tapped month: $monthDate');
-                          },
-                        )
+                                summaries: monthlySummaries,
+                                onMonthSelected: (monthDate) {
+                                  debugPrint('Tapped month: $monthDate');
+                                },
+                              )
                             : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.bar_chart,
-                                size: 48,
-                                color: Colors.grey.shade300,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Need more data',
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 14,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.bar_chart,
+                                      size: 48,
+                                      color: Colors.grey.shade300,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      l10n.needMoreData,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 24),
                     ],
@@ -956,7 +1013,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'History',
+                      l10n.history,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -982,7 +1039,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            'Tap to expand',
+                            l10n.tapToExpand,
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade600,
@@ -997,22 +1054,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
+            // Transaction List
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
+              stream: user != null
+                  ? FirebaseFirestore.instance
                   .collection('users')
                   .doc(user!.uid)
                   .collection('transactions')
                   .orderBy('createdAt', descending: true)
                   .limit(_pageSize)
-                  .snapshots(),
+                  .snapshots()
+                  : const Stream.empty(),  // Empty stream when logged out
               builder: (context, snapshot) {
+                // Handle logged out state
+                if (user == null) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     _allTransactions.isEmpty) {
                   return const SliverFillRemaining(
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
+
+                // ... rest of your builder code
 
                 if (snapshot.hasError) {
                   return SliverFillRemaining(
@@ -1032,16 +1098,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 }
 
                 if (displayDocs.isEmpty) {
-                  return const SliverFillRemaining(
+                  return SliverFillRemaining(
                     child: Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey),
-                          SizedBox(height: 16),
+                          const Icon(Icons.inbox, size: 64, color: Colors.grey),
+                          const SizedBox(height: 16),
                           Text(
-                            'No transactions yet',
-                            style: TextStyle(color: Colors.grey),
+                            l10n.noTransactions,
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ],
                       ),
@@ -1090,10 +1156,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Colors.green.shade400,
-                          Colors.green.shade600,
-                        ],
+                        colors: [Colors.green.shade400, Colors.green.shade600],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
@@ -1412,57 +1475,67 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                     // Show checkmark for completed, pending icon otherwise
                                     data['status'] == 'completed'
                                         ? Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade100,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.check_circle,
-                                            size: 12,
-                                            color: Colors.green.shade700,
-                                          ),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            'Done',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.green.shade700,
-                                              fontWeight: FontWeight.bold,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.check_circle,
+                                                  size: 12,
+                                                  color: Colors.green.shade700,
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  'Done',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.green.shade700,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
                                         : Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange.shade100,
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.pending,
-                                            size: 12,
-                                            color: Colors.orange.shade700,
-                                          ),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            'Pending',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.orange.shade700,
-                                              fontWeight: FontWeight.bold,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade100,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.pending,
+                                                  size: 12,
+                                                  color: Colors.orange.shade700,
+                                                ),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  'Pending',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color:
+                                                        Colors.orange.shade700,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ),
                                   ],
                                 ),
                               ),
@@ -1598,6 +1671,7 @@ class _CheckmarkAnimationState extends State<CheckmarkAnimation>
     );
   }
 }
+
 // Add this widget for pending status
 class PendingPulse extends StatefulWidget {
   final Widget child;

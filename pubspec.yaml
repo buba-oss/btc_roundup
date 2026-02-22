@@ -50,6 +50,8 @@ dependencies:
   provider: ^6.1.5+1
   local_auth: ^3.0.0
   flutter_localization:
+  url_launcher: ^6.3.2
+
 
 
 

@@ -200,12 +200,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SwitchListTile(
-                    title: const Text('Biometric Lock'),
+                    title: const Text('Use Biometric Lock'),
                     subtitle: const Text('Require fingerprint/face to open app'),
                     value: settings.biometricEnabled,
                     onChanged: (value) {
                       settings.setBiometricEnabled(value);
-                      setState(() {}); // Rebuild dialog
+                      setState(() {
+
+                      }); // Rebuild dialog
                     },
                   ),
                   const Divider(),

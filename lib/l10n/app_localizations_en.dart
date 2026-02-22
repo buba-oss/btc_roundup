@@ -91,4 +91,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get language => 'Language';
+
+  @override
+  String get settingsLegal => 'Legal';
+
+  @override
+  String get settingsPrivacy => 'Privacy Policy';
+
+  @override
+  String get settingsPrivacySubtitle => 'How we handle your data';
+
+  @override
+  String get settingsDeleteAccount => 'Delete account';
+
+  @override
+  String get settingsDeleteAccountSubtitle =>
+      'Permanently remove your account and app data';
+
+  @override
+  String get deleteAccountTitle => 'Delete account';
+
+  @override
+  String get deleteAccountWarning =>
+      'Your account and all associated app data will be permanently deleted.\n\nThis action cannot be undone.';
+
+  @override
+  String get deleteAccountCancel => 'Cancel';
+
+  @override
+  String get deleteAccountConfirm => 'Delete';
+
+  @override
+  String get privacyPolicyOpen => 'Open privacy policy';
+
+  @override
+  String get privacyPolicyNote =>
+      'The full privacy policy opens in your browser.';
 }

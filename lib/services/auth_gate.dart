@@ -22,15 +22,17 @@ class AuthGate extends StatelessWidget {
 
         final user = snapshot.data;
 
+        // Not logged in
         if (user == null) {
           return const LoginScreen();
         }
 
+        // Email not verified
         if (!user.emailVerified) {
           return const EmailVerificationScreen();
         }
 
-        // No provider here - it's in main.dart
+        // Logged in + verified → biometric → home
         return BiometricLockScreen(
           child: HomePage(user: user),
         );

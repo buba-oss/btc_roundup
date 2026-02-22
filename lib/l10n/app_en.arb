@@ -27,5 +27,21 @@
   "generating": "Generating...",
   "processing": "Processing...",
   "settings": "Settings",
-  "language": "Language"
+  "language": "Language",
+
+  "settingsLegal": "Legal",
+  "settingsPrivacy": "Privacy Policy",
+  "settingsPrivacySubtitle": "How we handle your data",
+  "settingsDeleteAccount": "Delete account",
+  "settingsDeleteAccountSubtitle": "Permanently remove your account and app data",
+
+  "deleteAccountTitle": "Delete account",
+  "deleteAccountWarning":
+  "Your account and all associated app data will be permanently deleted.\n\nThis action cannot be undone.",
+  "deleteAccountCancel": "Cancel",
+  "deleteAccountConfirm": "Delete",
+
+  "privacyPolicyOpen": "Open privacy policy",
+  "privacyPolicyNote": "The full privacy policy opens in your browser."
 }
+

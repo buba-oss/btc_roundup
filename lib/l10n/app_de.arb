@@ -27,5 +27,23 @@
   "generating": "Wird generiert...",
   "processing": "Wird verarbeitet...",
   "settings": "Einstellungen",
-  "language": "Sprache"
+  "language": "Sprache",
+
+
+  "settingsLegal": "Rechtliches",
+  "settingsPrivacy": "Datenschutzerklärung",
+  "settingsPrivacySubtitle": "Wie wir Ihre Daten verarbeiten",
+  "settingsDeleteAccount": "Konto löschen",
+  "settingsDeleteAccountSubtitle": "Konto und App-Daten dauerhaft entfernen",
+
+  "deleteAccountTitle": "Konto löschen",
+  "deleteAccountWarning":
+  "Ihr Konto und alle zugehörigen App-Daten werden dauerhaft gelöscht.\n\nDiese Aktion kann nicht rückgängig gemacht werden.",
+  "deleteAccountCancel": "Abbrechen",
+  "deleteAccountConfirm": "Konto löschen",
+
+  "privacyPolicyOpen": "Datenschutzerklärung öffnen",
+  "privacyPolicyNote": "Die vollständige Datenschutzerklärung wird im Browser geöffnet."
 }
+
+

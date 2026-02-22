@@ -2,6 +2,7 @@ import 'package:btc_roundup/providers/settings_provider.dart';
 import 'package:btc_roundup/screens/email_verification_screen.dart';
 import 'package:btc_roundup/screens/home_page.dart';
 import 'package:btc_roundup/screens/login_screen.dart';
+import 'package:btc_roundup/screens/onboarding_screen.dart';
 import 'package:btc_roundup/services/auth_gate.dart';
 import 'package:btc_roundup/services/auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'l10n/app_localizations.dart';
 
 void main() async {
@@ -21,7 +23,10 @@ void main() async {
     ),
   );
 }
-
+Future<bool> shouldShowOnboarding() async {
+  final prefs = await SharedPreferences.getInstance();
+  return !(prefs.getBool('hasSeenOnboarding') ?? false);
+}
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -44,7 +49,22 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.orange,
         useMaterial3: true,
       ),
-      home: const AuthGate(),
+      home: FutureBuilder<bool>(
+        future: shouldShowOnboarding(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (snapshot.data!) {
+            return const OnboardingScreen();
+          }
+
+          return const AuthGate();
+        },
+      ),
     );
   }
 }

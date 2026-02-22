@@ -92,4 +92,40 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get language => 'Sprache';
+
+  @override
+  String get settingsLegal => 'Rechtliches';
+
+  @override
+  String get settingsPrivacy => 'Datenschutzerklärung';
+
+  @override
+  String get settingsPrivacySubtitle => 'Wie wir Ihre Daten verarbeiten';
+
+  @override
+  String get settingsDeleteAccount => 'Konto löschen';
+
+  @override
+  String get settingsDeleteAccountSubtitle =>
+      'Konto und App-Daten dauerhaft entfernen';
+
+  @override
+  String get deleteAccountTitle => 'Konto löschen';
+
+  @override
+  String get deleteAccountWarning =>
+      'Ihr Konto und alle zugehörigen App-Daten werden dauerhaft gelöscht.\n\nDiese Aktion kann nicht rückgängig gemacht werden.';
+
+  @override
+  String get deleteAccountCancel => 'Abbrechen';
+
+  @override
+  String get deleteAccountConfirm => 'Konto löschen';
+
+  @override
+  String get privacyPolicyOpen => 'Datenschutzerklärung öffnen';
+
+  @override
+  String get privacyPolicyNote =>
+      'Die vollständige Datenschutzerklärung wird im Browser geöffnet.';
 }
